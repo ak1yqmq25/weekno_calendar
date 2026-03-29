@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans JP', sans-serif;
+    background: linear-gradient(160deg, #fff5f7 0%, #ffe0ec 40%, #fcd5e6 70%, #f8c8dc 100%);
+    color: #4a3040;
+    display: flex;
+    justify-content: center;
+    padding: 16px;
+    min-height: 100vh;
+  }
+  .container { width: 100%; max-width: 500px; }
+
+  .week-banner {
+    background: linear-gradient(135deg, #f9a8c9, #f472b6, #e879a8);
+    border-radius: 14px;
+    padding: 14px 20px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #fff;
+    box-shadow: 0 4px 15px #f9a8c944;
+  }
+  .week-banner .label { font-size: 13px; opacity: 0.9; }
+  .week-banner .week-num { font-size: 24px; font-weight: 700; letter-spacing: 0.5px; }
+  .week-banner .sub { font-size: 12px; opacity: 0.8; }
+
+  .nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .nav-btn {
+    background: #fff;
+    border: 1px solid #f3c4d8;
+    color: #e0729c;
+    width: 34px; height: 34px;
+    border-radius: 10px;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .2s;
+    box-shadow: 0 1px 4px #f9a8c922;
+  }
+  .nav-btn:hover { background: #fef0f5; border-color: #f09ec5; }
+  .month-title { font-size: 18px; font-weight: 700; color: #c0507a; }
+  .today-btn {
+    background: #fff;
+    border: 1px solid #f3c4d8;
+    color: #e0729c;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .today-btn:hover { background: #fef0f5; border-color: #f09ec5; }
+
+  .cal-grid {
+    display: grid;
+    grid-template-columns: 42px repeat(7, 1fr);
+    gap: 2px;
+    background: #fff;
+    border-radius: 14px;
+    padding: 8px 6px;
+    box-shadow: 0 2px 12px #f3c4d833;
+  }
+  .col-header {
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 6px 0;
+    color: #c0a0b0;
+  }
+  .col-header.wk { color: #e88aaf; font-size: 9px; }
+  .col-header.sun { color: #f06292; }
+  .col-header.sat { color: #7bafd4; }
+
+  .wk-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    color: #e88aaf;
+    font-weight: 700;
+    background: #fdf0f4;
+    border-radius: 6px;
+    line-height: 1.1;
+  }
+
+  .day-cell {
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    border-radius: 10px;
+    cursor: default;
+    transition: background .15s;
+    font-weight: 500;
+    position: relative;
+  }
+  .day-cell.other-month { color: #dcc8d2; }
+  .day-cell.sun, .day-cell.holiday { color: #f06292; }
+  .day-cell.sat { color: #7bafd4; }
+  .day-cell.other-month.sun, .day-cell.other-month.holiday { color: #f0c0d4; }
+  .day-cell.other-month.sat { color: #b8d4e8; }
+  .day-cell.today {
+    background: linear-gradient(135deg, #f9a8c9, #f472b6);
+    color: #fff !important;
+    font-weight: 700;
+    box-shadow: 0 2px 8px #f472b644;
+  }
+  .day-cell.today .holiday-dot { background: #fff; }
+  .day-cell.current-week-day { background: #fdf0f5; }
+
+  .holiday-dot {
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: #f06292;
+    margin-top: 1px;
+  }
+
+  /* Tooltip */
+  .day-cell .tooltip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #fff;
+    color: #c0507a;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 3px 6px;
+    border-radius: 5px;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    z-index: 10;
+    pointer-events: none;
+  }
+  .day-cell:hover .tooltip { display: block; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="week-banner">
+    <div>
+      <div class="label">2026年</div>
+      <div class="sub" id="dateRange"></div>
+    </div>
+    <div style="text-align:right">
+      <div class="label">今週</div>
+      <div class="week-num">Week <span id="currentWeek"></span></div>
+    </div>
+  </div>
+  <div class="nav">
+    <button class="nav-btn" id="prev">◀</button>
+    <span class="month-title" id="monthTitle"></span>
+    <button class="today-btn" id="todayBtn">今日</button>
+    <button class="nav-btn" id="next">▶</button>
+  </div>
+  <div class="cal-grid" id="grid"></div>
+</div>
+
+<script>
+const DAYS = ['日','月','火','水','木','金','土'];
+const today = new Date();
+let viewYear = today.getFullYear();
+let viewMonth = today.getMonth();
+
+// ---- 日本の祝日 (2025-2027) ----
+const HOLIDAYS = {
+  // 2025
+  '2025-01-01': '元日', '2025-01-13': '成人の日', '2025-02-11': '建国記念の日',
+  '2025-02-23': '天皇誕生日', '2025-02-24': '振替休日', '2025-03-20': '春分の日',
+  '2025-04-29': '昭和の日', '2025-05-03': '憲法記念日', '2025-05-04': 'みどりの日',
+  '2025-05-05': 'こどもの日', '2025-05-06': '振替休日', '2025-07-21': '海の日',
+  '2025-08-11': '山の日', '2025-09-15': '敬老の日', '2025-09-23': '秋分の日',
+  '2025-10-13': 'スポーツの日', '2025-11-03': '文化の日', '2025-11-23': '勤労感謝の日',
+  '2025-11-24': '振替休日',
+  // 2026
+  '2026-01-01': '元日', '2026-01-12': '成人の日', '2026-02-11': '建国記念の日',
+  '2026-02-23': '天皇誕生日', '2026-03-20': '春分の日', '2026-04-29': '昭和の日',
+  '2026-05-03': '憲法記念日', '2026-05-04': 'みどりの日', '2026-05-05': 'こどもの日',
+  '2026-05-06': '振替休日', '2026-07-20': '海の日', '2026-08-11': '山の日',
+  '2026-09-21': '敬老の日', '2026-09-22': '国民の休日', '2026-09-23': '秋分の日',
+  '2026-10-12': 'スポーツの日', '2026-11-03': '文化の日', '2026-11-23': '勤労感謝の日',
+  // 2027
+  '2027-01-01': '元日', '2027-01-11': '成人の日', '2027-02-11': '建国記念の日',
+  '2027-02-23': '天皇誕生日', '2027-03-21': '春分の日', '2027-03-22': '振替休日',
+  '2027-04-29': '昭和の日', '2027-05-03': '憲法記念日', '2027-05-04': 'みどりの日',
+  '2027-05-05': 'こどもの日', '2027-07-19': '海の日', '2027-08-11': '山の日',
+  '2027-09-20': '敬老の日', '2027-09-23': '秋分の日', '2027-10-11': 'スポーツの日',
+  '2027-11-03': '文化の日', '2027-11-23': '勤労感謝の日',
+};
+
+function dateKey(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function getISO8601Week(d) {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil(((date - yearStart) / 86400000 + 1) / 7);
+}
+
+function getWeekRange(d) {
+  const day = d.getDay();
+  const mon = new Date(d);
+  mon.setDate(d.getDate() - ((day + 6) % 7));
+  const sun = new Date(mon);
+  sun.setDate(mon.getDate() + 6);
+  return `${mon.getMonth()+1}/${mon.getDate()} - ${sun.getMonth()+1}/${sun.getDate()}`;
+}
+
+function render() {
+  document.getElementById('currentWeek').textContent = getISO8601Week(today);
+  document.getElementById('dateRange').textContent = getWeekRange(today);
+  document.getElementById('monthTitle').textContent = `${viewYear}年${viewMonth + 1}月`;
+
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+
+  const wkH = document.createElement('div');
+  wkH.className = 'col-header wk'; wkH.textContent = 'Week';
+  grid.appendChild(wkH);
+  DAYS.forEach((d, i) => {
+    const h = document.createElement('div');
+    h.className = 'col-header' + (i === 0 ? ' sun' : i === 6 ? ' sat' : '');
+    h.textContent = d;
+    grid.appendChild(h);
+  });
+
+  const firstDay = new Date(viewYear, viewMonth, 1);
+  const startDay = firstDay.getDay();
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+  const todayDay = today.getDay();
+  const cwMon = new Date(today);
+  cwMon.setDate(today.getDate() - ((todayDay + 6) % 7));
+  cwMon.setHours(0,0,0,0);
+  const cwSun = new Date(cwMon);
+  cwSun.setDate(cwMon.getDate() + 6);
+  cwSun.setHours(23,59,59,999);
+
+  let date = 1 - startDay;
+  const totalCells = Math.ceil((startDay + daysInMonth) / 7) * 7;
+
+  for (let i = 0; i < totalCells; i++) {
+    if (i % 7 === 0) {
+      const refDate = new Date(viewYear, viewMonth, date < 1 ? 1 : Math.min(date, daysInMonth));
+      const wk = document.createElement('div');
+      wk.className = 'wk-label';
+      wk.textContent = getISO8601Week(refDate);
+      grid.appendChild(wk);
+    }
+
+    const cell = document.createElement('div');
+    const currentDate = new Date(viewYear, viewMonth, date);
+    const inMonth = date >= 1 && date <= daysInMonth;
+    const dow = currentDate.getDay();
+    const key = dateKey(currentDate);
+    const holiday = HOLIDAYS[key];
+
+    let cls = 'day-cell';
+    if (!inMonth) cls += ' other-month';
+    if (holiday) cls += ' holiday';
+    else if (dow === 0) cls += ' sun';
+    if (dow === 6 && !holiday) cls += ' sat';
+
+    if (inMonth && currentDate.toDateString() === today.toDateString()) {
+      cls += ' today';
+    } else if (inMonth && currentDate >= cwMon && currentDate <= cwSun) {
+      cls += ' current-week-day';
+    }
+
+    cell.className = cls;
+
+    const num = document.createElement('span');
+    num.textContent = currentDate.getDate();
+    cell.appendChild(num);
+
+    if (holiday) {
+      const dot = document.createElement('div');
+      dot.className = 'holiday-dot';
+      cell.appendChild(dot);
+      const tip = document.createElement('div');
+      tip.className = 'tooltip';
+      tip.textContent = holiday;
+      cell.appendChild(tip);
+    }
+
+    grid.appendChild(cell);
+    date++;
+  }
+}
+
+document.getElementById('prev').onclick = () => { viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; } render(); };
+document.getElementById('next').onclick = () => { viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; } render(); };
+document.getElementById('todayBtn').onclick = () => { viewYear = today.getFullYear(); viewMonth = today.getMonth(); render(); };
+
+render();
+</script>
+</body>
+</html>
