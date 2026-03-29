@@ -97,6 +97,10 @@
     border-radius: 6px;
     line-height: 1.1;
   }
+  .wk-label.focus-week {
+    background: #f9a8c9;
+    color: #fff;
+  }
 
   .day-cell {
     aspect-ratio: 1;
@@ -123,7 +127,7 @@
     box-shadow: 0 2px 8px #f472b644;
   }
   .day-cell.today .holiday-dot { background: #fff; }
-  .day-cell.current-week-day { background: #fdf0f5; }
+  .day-cell.focus-week-day { background: #fdf0f5; }
 
   .holiday-dot {
     width: 4px; height: 4px;
@@ -156,7 +160,7 @@
 <div class="container">
   <div class="week-banner">
     <div>
-      <div class="label">2026年</div>
+      <div class="label" id="bannerYear">2026年</div>
       <div class="sub" id="dateRange"></div>
     </div>
     <div style="text-align:right">
@@ -173,11 +177,13 @@
 </div>
 
 <script>
-// 月曜始まり
 const DAYS = ['月','火','水','木','金','土','日'];
 const today = new Date();
-let viewYear = today.getFullYear();
-let viewMonth = today.getMonth();
+today.setHours(0,0,0,0);
+
+// focusDate = the Monday of the "focused" week
+let focusDate = new Date(today);
+focusDate.setDate(today.getDate() - ((today.getDay() + 6) % 7));
 
 const HOLIDAYS = {
   '2025-01-01':'元日','2025-01-13':'成人の日','2025-02-11':'建国記念の日',
@@ -212,24 +218,26 @@ function getISO8601Week(d) {
   return Math.ceil(((date - yearStart) / 86400000 + 1) / 7);
 }
 
-function getWeekRange(d) {
-  const day = d.getDay();
-  const mon = new Date(d);
-  mon.setDate(d.getDate() - ((day + 6) % 7));
-  const sun = new Date(mon);
-  sun.setDate(mon.getDate() + 6);
-  return `${mon.getMonth()+1}/${mon.getDate()} - ${sun.getMonth()+1}/${sun.getDate()}`;
-}
-
 function render() {
-  document.getElementById('currentWeek').textContent = getISO8601Week(today);
-  document.getElementById('dateRange').textContent = getWeekRange(today);
+  // Focus week Mon-Sun
+  const fwMon = new Date(focusDate);
+  const fwSun = new Date(fwMon);
+  fwSun.setDate(fwMon.getDate() + 6);
+
+  // Banner shows focus week info
+  document.getElementById('bannerYear').textContent = fwMon.getFullYear() + '年';
+  document.getElementById('currentWeek').textContent = getISO8601Week(fwMon);
+  document.getElementById('dateRange').textContent =
+    `${fwMon.getMonth()+1}/${fwMon.getDate()} - ${fwSun.getMonth()+1}/${fwSun.getDate()}`;
+
+  // Calendar shows the month that contains the focus Monday
+  const viewYear = fwMon.getFullYear();
+  const viewMonth = fwMon.getMonth();
   document.getElementById('monthTitle').textContent = `${viewYear}年${viewMonth+1}月`;
 
   const grid = document.getElementById('grid');
   grid.innerHTML = '';
 
-  // Headers
   const wkH = document.createElement('div');
   wkH.className = 'col-header wk'; wkH.textContent = 'Week';
   grid.appendChild(wkH);
@@ -241,18 +249,10 @@ function render() {
   });
 
   const firstDay = new Date(viewYear, viewMonth, 1);
-  // 月曜始まり: 0=月, 1=火, ... 6=日
   const startOffset = (firstDay.getDay() + 6) % 7;
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
 
-  // Current week range (Mon-Sun)
-  const todayDow = today.getDay();
-  const cwMon = new Date(today);
-  cwMon.setDate(today.getDate() - ((todayDow + 6) % 7));
-  cwMon.setHours(0,0,0,0);
-  const cwSun = new Date(cwMon);
-  cwSun.setDate(cwMon.getDate() + 6);
-  cwSun.setHours(23,59,59,999);
+  const focusWeekNum = getISO8601Week(fwMon);
 
   let date = 1 - startOffset;
   const totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7;
@@ -260,16 +260,18 @@ function render() {
   for (let i = 0; i < totalCells; i++) {
     if (i % 7 === 0) {
       const refDate = new Date(viewYear, viewMonth, date < 1 ? 1 : Math.min(date, daysInMonth));
+      const wkNum = getISO8601Week(refDate);
       const wk = document.createElement('div');
-      wk.className = 'wk-label';
-      wk.textContent = getISO8601Week(refDate);
+      wk.className = 'wk-label' + (wkNum === focusWeekNum ? ' focus-week' : '');
+      wk.textContent = wkNum;
       grid.appendChild(wk);
     }
 
     const cell = document.createElement('div');
     const currentDate = new Date(viewYear, viewMonth, date);
+    currentDate.setHours(0,0,0,0);
     const inMonth = date >= 1 && date <= daysInMonth;
-    const dow = currentDate.getDay(); // 0=Sun
+    const dow = currentDate.getDay();
     const key = dateKey(currentDate);
     const holiday = HOLIDAYS[key];
 
@@ -279,10 +281,10 @@ function render() {
     else if (dow === 0) cls += ' sun';
     if (dow === 6 && !holiday) cls += ' sat';
 
-    if (inMonth && currentDate.toDateString() === today.toDateString()) {
+    if (inMonth && currentDate.getTime() === today.getTime()) {
       cls += ' today';
-    } else if (inMonth && currentDate >= cwMon && currentDate <= cwSun) {
-      cls += ' current-week-day';
+    } else if (inMonth && currentDate >= fwMon && currentDate <= fwSun) {
+      cls += ' focus-week-day';
     }
 
     cell.className = cls;
@@ -306,9 +308,19 @@ function render() {
   }
 }
 
-document.getElementById('prev').onclick = () => { viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; } render(); };
-document.getElementById('next').onclick = () => { viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; } render(); };
-document.getElementById('todayBtn').onclick = () => { viewYear = today.getFullYear(); viewMonth = today.getMonth(); render(); };
+document.getElementById('prev').onclick = () => {
+  focusDate.setDate(focusDate.getDate() - 7);
+  render();
+};
+document.getElementById('next').onclick = () => {
+  focusDate.setDate(focusDate.getDate() + 7);
+  render();
+};
+document.getElementById('todayBtn').onclick = () => {
+  focusDate = new Date(today);
+  focusDate.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+  render();
+};
 
 render();
 </script>
